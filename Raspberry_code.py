@@ -159,6 +159,8 @@ class MotorController:
         self.pwm_count = 0
         self.revolutions = 0
 
+        self._stuck = False
+
     def _update_encoder(self, channel):
         """Quadrature encoder update"""
         a = GPIO.input(self.encoder_a)
@@ -172,7 +174,7 @@ class MotorController:
             self.direction = -1
 
     def _compute_speed(self):
-        """Background thread to compute RPM"""
+        """Background thread to compute RPM and check if motor is stuck"""
         while self._running:
             time.sleep(0.1)  # sample every 100 ms
             now = time.time()
@@ -181,13 +183,20 @@ class MotorController:
 
             # Speed in RPM
             self.speed_rpm = (self.position / self.counts_per_rev) * (60.0 / dt)
-            self.position = 0  # reset counter for next window
+
+            # Check if motor is stuck
+            if abs(self.position) < self.stuck_threshold and self.get_speed_duty() != 0:
+                self._stuck = True
+            else:
+                self._stuck = False
+
+            # Reset position for next interval
+            self.position = 0
 
     def set_speed(self, duty_cycle):
-        """
-        Set motor speed with PWM (0-100%).
-        Positive for forward, negative for backward.
-        """
+        """Set motor speed with PWM and update revolution counter"""
+        self._last_duty = duty_cycle  # store for stuck detection
+
         if duty_cycle > 0:
             GPIO.output(self.in1_pin, GPIO.HIGH)
             GPIO.output(self.in2_pin, GPIO.LOW)
@@ -202,12 +211,19 @@ class MotorController:
 
         self.pwm.ChangeDutyCycle(abs(duty_cycle))
 
-        # Increment PWM counter and calculate revolutions
+        # PWM-based revolution counter
         self.pwm_count += 1
         if self.pwm_count >= self.pwm_per_rev:
             self.pwm_count = 0
             self.revolutions += 1
 
+    def is_stuck(self):
+        """Return True if motor is stuck, False otherwise"""
+        return self._stuck
+
+    def get_speed_duty(self):
+        """Return last PWM duty cycle command (absolute value)"""
+        return self._last_duty if hasattr(self, "_last_duty") else 0
     def get_revolutions(self):
         """Return the total number of revolutions made"""
         return self.revolutions
