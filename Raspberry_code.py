@@ -104,9 +104,7 @@ class SIM7600:
         self.send_at("AT+SMTPCLR")
         print("Email sent successfully.")
 
-import RPi.GPIO as GPIO
-import time
-import threading
+
 
 
 class MotorController:
@@ -157,6 +155,10 @@ class MotorController:
         self.speed_thread = threading.Thread(target=self._compute_speed, daemon=True)
         self.speed_thread.start()
 
+        self.pwm_per_rev = pwm_per_rev
+        self.pwm_count = 0
+        self.revolutions = 0
+
     def _update_encoder(self, channel):
         """Quadrature encoder update"""
         a = GPIO.input(self.encoder_a)
@@ -199,6 +201,21 @@ class MotorController:
             return
 
         self.pwm.ChangeDutyCycle(abs(duty_cycle))
+
+        # Increment PWM counter and calculate revolutions
+        self.pwm_count += 1
+        if self.pwm_count >= self.pwm_per_rev:
+            self.pwm_count = 0
+            self.revolutions += 1
+
+    def get_revolutions(self):
+        """Return the total number of revolutions made"""
+        return self.revolutions
+
+    def reset_revolutions(self):
+        """Reset the revolution counter"""
+        self.revolutions = 0
+        self.pwm_count = 0
 
     def stop(self):
         """Stop motor"""

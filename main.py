@@ -81,3 +81,23 @@ if __name__ == "__main__":
         finally:
             motor.cleanup()
 
+
+
+    if __name__ == "__main__":
+        motor = MotorController(
+            pwm_pin=18, in1_pin=23, in2_pin=24,
+            encoder_a=17, encoder_b=27
+        )
+        sim = SIM7600()
+        sim.init_module()
+
+        # Lower capsule
+        # La faire descendre pour 12 révolution
+        motor.set_speed(-100)
+
+
+
+        # Upper capsule
+
+
+
