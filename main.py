@@ -1,103 +1,128 @@
-import serial
+import RPi.GPIO as GPIO
 import time
-import re
-import json
+from Raspberry_code import *  # assumes SIM7600, MotorController
+from BLE_COM import BLEManager, BLESMTPBridge
 
-from Raspberry_code import*
+class Protocol:
+    def __init__(self, motor_controller, rope_length_per_rev):
+        """
+        :param motor_controller: Instance of MotorController
+        :param rope_length_per_rev: Length of rope (cm or m) moved per drum revolution
+        """
+        self.motor = motor_controller
+        self.rope_length_per_rev = rope_length_per_rev
+
+    def depth_to_revolutions(self, depth):
+        """Convert depth (same units as rope_length_per_rev) into required revolutions."""
+        return depth / self.rope_length_per_rev
+
+    def descente_moteur(self, target_depth):
+        """Lower capsule until target depth is reached."""
+        target_revs = self.depth_to_revolutions(target_depth)
+        self.motor.reset_revolutions()
+        self.motor.set_speed(-100)
+
+        while self.motor.get_revolutions() < target_revs:
+            if self.motor.is_stuck():
+                print("Motor stuck during descent. Stopping.")
+                break
+
+            time.sleep(0.1)
+
+        self.motor.stop()
+
+    def montee_moteur(self, target_depth):
+        """Raise capsule back up to surface (or to given depth)."""
+        target_revs = self.depth_to_revolutions(target_depth)
+        self.motor.reset_revolutions()
+        self.motor.set_speed(100)
+
+        while self.motor.get_revolutions() < target_revs:
+            if self.motor.is_stuck():
+                print("Motor stuck during ascent. Stopping.")
+                self.motor.stop()
+                "IL FAUDRAIT ALLUMER UNE LUMIÈRE QUI MET DÉMONTRE QU'IL Y A UN PROBLÈME"
+                break
+
+            time.sleep(0.1)
+
+    def manual_descente(self):
+        """Hold button to lower capsule manually."""
+        while self.motor.BOUTON_DESCENTE():
+            self.motor.set_speed(-100)
+        self.motor.stop()
+
+    def manual_montee(self):
+        """Hold button to raise capsule manually."""
+        while self.motor.BOUTON_MONTEE():
+            self.motor.set_speed(100)
+        self.motor.stop()
 
 
-# === Example Usage ===
 if __name__ == "__main__":
-    motor = MotorController(
-        pwm_pin=18, in1_pin=23, in2_pin=24,
-        encoder_a=17, encoder_b=27
-    )
-
     try:
-        print("Forward at 50%")
-        motor.set_speed(50)
-        time.sleep(3)
-
-        print("Backward at 75%")
-        motor.set_speed(-75)
-        time.sleep(3)
-
-        print("Speed:", motor.get_speed_rpm(), "RPM")
-        print("Direction:", "Forward" if motor.get_direction() == 1 else "Backward")
-
-        motor.stop()
-    finally:
-        motor.cleanup()
-
-# === Example Usage ===
-if __name__ == "__main__":
-    sim = SIM7600()
-    sim.init_module()
-
-    # 1. Get GPS
-    latitude, longitude = sim.get_gps_coordinates()
-    print(f"Latitude: {latitude:.6f}, Longitude: {longitude:.6f}")
-
-    # 2. Fake sensor data (replace with actual readings)
-    sensor_data = {
-        "temperature": 21.5,
-        "pH": 7.2,
-        "TDS": 120,
-        "redox": 235,
-        "gps": {"lat": latitude, "lon": longitude}
-    }
-
-    # 3. Send JSON email
-    sim.send_email(
-        smtp_server="smtp.yourmail.com",
-        smtp_port="587",
-        email_user="dataStream@gmail.com",
-        email_pass="your_password",
-        email_to="cogesaf@domain.com",
-        subject="Sensor Data Report",
-        json_payload=sensor_data
-    )
-
-    # === Example Usage ===
-    if __name__ == "__main__":
+        # --- Setup motor controller ---
         motor = MotorController(
-            pwm_pin=18, in1_pin=23, in2_pin=24,
-            encoder_a=17, encoder_b=27
+            pwm_pin=18,
+            in1_pin=23,
+            in2_pin=24,
+            encoder_a=17,
+            encoder_b=27
         )
 
-        try:
-            print("Forward at 50%")
-            motor.set_speed(50)
-            time.sleep(3)
-
-            print("Backward at 75%")
-            motor.set_speed(-75)
-            time.sleep(3)
-
-            print("Speed:", motor.get_speed_rpm(), "RPM")
-            print("Direction:", "Forward" if motor.get_direction() == 1 else "Backward")
-
-            motor.stop()
-        finally:
-            motor.cleanup()
-
-
-
-    if __name__ == "__main__":
-        motor = MotorController(
-            pwm_pin=18, in1_pin=23, in2_pin=24,
-            encoder_a=17, encoder_b=27
-        )
+        # --- Setup SIM7600 ---
         sim = SIM7600()
         sim.init_module()
 
-        # Lower capsule
-        # La faire descendre pour 12 révolution
-        motor.set_speed(-100)
+        # --- Setup BLE <-> SMTP bridge ---
+        ble_manager = BLEManager(name="nrf52_sensor_node")  # or use address
+        bridge = BLESMTPBridge(
+            sim7600=sim,
+            ble_manager=ble_manager,
+            smtp_server="smtp.example.com",
+            smtp_port=587,
+            email_user="datastream@example.com",
+            email_pass="your_password",
+            email_to="cogesaf@example.com"
+        )
 
+        # --- GPIO pin to trigger protocol ---
+        START_PROTOCOL_PIN = 22
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(START_PROTOCOL_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
+        protocol = Protocol(motor, rope_length_per_rev=10)
 
-        # Upper capsule
+        print("System ready. Waiting for start signal...")
+        while True:
+            # --- Manual control priority ---
+            if motor.BOUTON_DESCENTE():
+                print("🔽 Manual descent activated")
+                protocol.manual_descente()  # will hold until button released
+            elif motor.BOUTON_MONTEE():
+                print("🔼 Manual ascent activated")
+                protocol.manual_montee()  # will hold until button released
 
+            # --- Automatic protocol trigger ---
+            elif GPIO.input(START_PROTOCOL_PIN) == GPIO.HIGH:
+                print("⏬ Starting protocol... lowering capsule.")
+                protocol.descente_moteur(target_depth=5)  # example depth
 
+                print("⏫ Raising capsule.")
+                protocol.montee_moteur(target_depth=5)
 
+                print("📡 Collecting data and sending via BLE/LTE...")
+                bridge.collect_and_send(subject="Water Sensor Report")
+
+                print("✅ Protocol finished. Waiting for next trigger.")
+
+            time.sleep(0.05)  # small delay to avoid busy loop
+
+        except KeyboardInterrupt:
+        print("⏹ Stopped by user.")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    finally:
+        GPIO.cleanup()
+        if motor is not None:
+            motor.cleanup()
