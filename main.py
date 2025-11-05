@@ -1,7 +1,7 @@
 import RPi.GPIO as GPIO
 import time
 from Raspberry_code import *  # assumes SIM7600, MotorController
-from BLE_COM import BLEManager, BLESMTPBridge
+from BLE_COM_Exemple import BLEManager, BLESMTPBridge
 
 class Protocol:
     def __init__(self, motor_controller, rope_length_per_rev):
