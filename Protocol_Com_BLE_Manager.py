@@ -224,7 +224,7 @@ async def reconnect_and_collect(expected_count=12, timeout_after_last=5):
 
 def save_rows_to_csv(rows):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"/home/pi/water_data_{timestamp}.csv"
+    filename = f"/home/pi/Desktop/datastream-pi/water_data_{timestamp}.csv"
     log(f"📝 Saving {len(rows)} rows to {filename}")
     # if first row is dict with keys
     keys = None
