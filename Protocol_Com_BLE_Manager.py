@@ -1,5 +1,3 @@
-!pip install bleak
-
 import asyncio
 from bleak import BleakClient, BleakScanner
 from datetime import datetime
