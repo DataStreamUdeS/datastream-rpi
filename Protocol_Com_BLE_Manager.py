@@ -207,6 +207,7 @@ async def reconnect_and_collect(expected_count=12, timeout_after_last=5):
             pass
 
         # Save CSV if rows exist
+        # TODO David : intégrer la procédure d'envoie LTE
         if rows:
             save_rows_to_csv(rows)
             # As requested: RPi notifies peripheral with "TX_done" (write to STATUS)
@@ -223,6 +224,7 @@ async def reconnect_and_collect(expected_count=12, timeout_after_last=5):
     return True
 
 def save_rows_to_csv(rows):
+    #TODO David : important shit pour l'envoie
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"/home/pi/Desktop/datastream-pi/water_data_{timestamp}.csv"
     log(f"📝 Saving {len(rows)} rows to {filename}")
@@ -240,6 +242,7 @@ def save_rows_to_csv(rows):
         log(f"⚠ Failed to save CSV: {e}")
 
 async def main():
+    #TODO David : runner initial_handshake() lorsque bouton ou wtv
     ok = await initial_handshake()
     if not ok:
         log("Initial handshake failed — exiting")
