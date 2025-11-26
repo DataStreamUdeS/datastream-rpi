@@ -54,7 +54,7 @@ class BLE_Com:
             device = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=60.0)
 
 
-        BLE_Com.(f"Found device: {device.address} — connecting...")
+        BLE_Com.log(f"Found device: {device.address} — connecting...")
         async with BleakClient(device) as client:
             if not client.is_connected:
                 BLE_Com.log("Failed to connect.")
@@ -86,7 +86,7 @@ class BLE_Com:
                 await client.stop_notify(STATUS_CHAR_UUID)
                 return False
 
-            log("Ready received, sending 'Moving' (control & status)")
+            BLE_Com.log("Ready received, sending 'Moving' (control & status)")
             if (noButton):
                 await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
 
