@@ -87,7 +87,7 @@ class BLE_Com:
                 return False
 
             BLE_Com.log("Ready received, sending 'Moving' (control & status)")
-            if (noButton):
+            if (True):
                 await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
 
                 # wait a bit then disconnect to simulate submersion
