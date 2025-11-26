@@ -17,7 +17,7 @@ CONTROL_CHAR_UUID = "0000182a-0000-1000-8000-00805f9b34fb"
 DATA_CHAR_UUID = "0000181a-0000-1000-8000-00805f9b34fb"
 STATUS_CHAR_UUID  = "0000184a-0000-1000-8000-00805f9b34fb"
 
-LOG_FILE = "/home/pi/water_ble_log.txt"
+LOG_FILE = "./water_ble_log.txt"
 DEVICE_NAME = "DataStream Capsule"
 
 PIN_CONTROL_BUTTON = 23
@@ -124,9 +124,9 @@ class BLE_Com:
         await asyncio.sleep(2)  # small pause before scanning again
         BLE_Com.log("Scanning for DataStream Capsule (reconnection)...")
         device = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=15.0)
-        if not device:
+        while not device:
             BLE_Com.log("Capsule not found on resurfacing.")
-            return False
+            time.sleep(5)
 
         BLE_Com.log(f"Found resurfaced capsule: {device.address} — connecting...")
         async with BleakClient(device) as client:
