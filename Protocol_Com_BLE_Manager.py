@@ -34,7 +34,7 @@ class BLE_Com:
         except Exception:
             pass
 
-    async def MEASURE_COLLECTION_MOTOR_CONTROL(self):
+    async def MEASURE_COLLECTION_MOTOR_CONTROL():
         BLE_Com.log("Starting MEASURE_COLLECTION_MOTOR_CONTROL()")
         # use asyncio.sleep in async context
         for i in range(3):
@@ -46,7 +46,7 @@ class BLE_Com:
         BLE_Com.log("Starting SENSOR_CALIBRATION() (not implemented)")
 
 
-    async def initial_handshake(self):
+    async def initial_handshake():
         BLE_Com.log("Scanning for DataStream Capsule...")
         device = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=60.0)
         while not device:
@@ -119,7 +119,7 @@ class BLE_Com:
 
         return True
 
-    async def reconnect_and_collect(self, expected_count=12, timeout_after_last=5):
+    async def reconnect_and_collect(expected_count=12, timeout_after_last=5):
         """Reconnect, trigger Listen/TX and gather binary notifications"""
         await asyncio.sleep(2)  # small pause before scanning again
         BLE_Com.log("Scanning for DataStream Capsule (reconnection)...")
