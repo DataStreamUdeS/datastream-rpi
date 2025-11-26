@@ -46,7 +46,7 @@ class BLE_Com:
         BLE_Com.log("Starting SENSOR_CALIBRATION() (not implemented)")
 
 
-    async def initial_handshake(self, noButton=False):
+    async def initial_handshake(self):
         BLE_Com.log("Scanning for DataStream Capsule...")
         device = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=60.0)
         while not device:
@@ -270,7 +270,7 @@ class BLE_Com:
 
 async def main():
 
-    ok = await BLE_Com.initial_handshake(nobutton = True)
+    ok = await BLE_Com.initial_handshake()
     if not ok:
         print("Initial handshake failed — exiting")
         return
