@@ -113,65 +113,6 @@ GPIO.add_event_detect(BTN_STOP, GPIO.FALLING, callback=stop_pressed, bouncetime=
 GPIO.add_event_detect(BTN_SEND_EMAIL, GPIO.FALLING, callback=email_pressed, bouncetime=300)
 
 # =============================================
-# ============ BLE DEVICE DISCOVERY ===========
-# =============================================
-async def find_capsule():
-    log("Scanning for DataStream Capsule...")
-    devices = await BleakScanner.discover(timeout=60.0)
-    for d in devices:
-        if d.name and DEVICE_NAME in d.name:
-            log(f"Found by name: {d.name} @ {d.address}")
-            return d
-        if SERVICE_UUID.lower() in [u.lower() for u in d.metadata.get("uuids", [])]:
-            log(f"Found by service UUID: {d.address}")
-            return d
-    return None
-
-# =============================================
-# =============== INITIAL HANDSHAKE ===========
-# =============================================
-async def initial_handshake():
-    if stop_flag:
-        return False
-    set_system_state("BUSY")
-    log("Searching for capsule...")
-
-    device = await find_capsule()
-    if not device:
-        log("Capsule not found!")
-        set_system_state("IDLE")
-        return False
-
-    async with BleakClient(device) as client:
-        log(f"Connected to {device.address}")
-
-        ready_event = asyncio.Event()
-        async def status_handler(sender, data):
-            try:
-                msg = data.decode("utf-8").strip()
-                log(f"Status: {msg}")
-                if "Ready" in msg:
-                    ready_event.set()
-            except:
-                pass
-
-        await client.start_notify(STATUS_CHAR_UUID, status_handler)
-        await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
-        
-        try:
-            await asyncio.wait_for(ready_event.wait(), timeout=6.0)
-            log("Capsule ready")
-        except asyncio.TimeoutError:
-            log("Ready timeout – continuing anyway")
-
-        await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
-        await asyncio.sleep(2)
-        log("Initial handshake complete – disconnecting")
-
-    set_system_state("IDLE")
-    return True
-
-# =============================================
 # =================== GPS (SIM7600) ===========
 # =============================================
 def find_at_port():
@@ -301,6 +242,67 @@ def send_email():
         log("Email sent successfully!")
     except Exception as e:
         log(f"Email FAILED: {e}")
+
+# =============================================
+# ============ BLE DEVICE DISCOVERY ===========
+# =============================================
+async def find_capsule():
+    log("Scanning for DataStream Capsule...")
+    devices = await BleakScanner.discover(timeout=60.0)
+    for d in devices:
+        if d.name and DEVICE_NAME in d.name:
+            log(f"Found by name: {d.name} @ {d.address}")
+            return d
+        if SERVICE_UUID.lower() in [u.lower() for u in d.metadata.get("uuids", [])]:
+            log(f"Found by service UUID: {d.address}")
+            return d
+    return None
+
+
+# =============================================
+# =============== INITIAL HANDSHAKE ===========
+# =============================================
+async def initial_handshake():
+    if stop_flag:
+        return False
+    set_system_state("BUSY")
+    log("Searching for capsule...")
+
+    device = await find_capsule()
+    if not device:
+        log("Capsule not found!")
+        set_system_state("IDLE")
+        return False
+
+    async with BleakClient(device) as client:
+        log(f"Connected to {device.address}")
+
+        ready_event = asyncio.Event()
+
+        async def status_handler(sender, data):
+            try:
+                msg = data.decode("utf-8").strip()
+                log(f"Status: {msg}")
+                if "Ready" in msg:
+                    ready_event.set()
+            except:
+                pass
+
+        await client.start_notify(STATUS_CHAR_UUID, status_handler)
+        await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
+
+        try:
+            await asyncio.wait_for(ready_event.wait(), timeout=6.0)
+            log("Capsule ready")
+        except asyncio.TimeoutError:
+            log("Ready timeout – continuing anyway")
+
+        await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
+        await asyncio.sleep(2)
+        log("Initial handshake complete – disconnecting")
+
+    set_system_state("IDLE")
+    return True
 
 # =============================================
 # ============ WAIT FOR RECONNECT BUTTON ======
