@@ -242,7 +242,7 @@ class BLE_Com:
                 BLE_Com.save_rows_to_csv(rows)
                 # As requested: RPi notifies peripheral with "TX_done" (write to STATUS)
                 try:
-                    await client.write_gatt_char(STATUS_CHAR_UUID, b"TX_done")
+                    await client.write_gatt_char(CONTROL_CHAR_UUID, b"TX_done")
                     BLE_Com.log("Wrote 'TX_done' to STATUS char (confirming to peripheral).")
                 except Exception as e:
                     BLE_Com.log(f"Could not write 'TX_done' to peripheral: {e}")
