@@ -77,7 +77,7 @@ class BLE_Com:
 
             # write Init
             BLE_Com.log("Writing 'Init' to Control")
-            await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init", response=False)
             BLE_Com.log("Init written")
 
             # wait for Ready
