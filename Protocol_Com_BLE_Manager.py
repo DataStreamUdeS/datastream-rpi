@@ -13,9 +13,9 @@ import pigpio
 import traceback
 
 # UUIDs
-SERVICE_UUID = "0000180a-0000-1000-8000-00805f9b34fb"
+SERVICE_UUID =      "0000180a-0000-1000-8000-00805f9b34fb"
 CONTROL_CHAR_UUID = "0000182a-0000-1000-8000-00805f9b34fb"
-DATA_CHAR_UUID = "0000181a-0000-1000-8000-00805f9b34fb"
+DATA_CHAR_UUID =    "0000181a-0000-1000-8000-00805f9b34fb"
 STATUS_CHAR_UUID  = "0000184a-0000-1000-8000-00805f9b34fb"
 
 LOG_FILE = "./water_ble_log.txt"
@@ -77,7 +77,7 @@ class BLE_Com:
 
             # write Init
             BLE_Com.log("Writing 'Init' to Control")
-            await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init", response=False)
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init", response=True)
             BLE_Com.log("Init written")
 
             # wait for Ready
