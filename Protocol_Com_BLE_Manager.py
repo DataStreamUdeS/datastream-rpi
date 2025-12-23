@@ -256,7 +256,7 @@ class BLE_Com:
 
             # Step: write "Listen" to control to tell peripheral to prepare
             BLE_Com.log("Writing 'Listen' to Control characteristic")
-            await client.write_gatt_char(CONTROL_CHAR_UUID, b"ready_to_tx")
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"ready_to_tx", response=False)
 
             # Wait briefly for peripheral to notify "TX" (or "Listen" -> then we write "TX")
             # If the peripheral notifies "Listen" or directly "TX", status_handler will log it.
@@ -288,7 +288,7 @@ class BLE_Com:
                         BLE_Com.log(f"No data for {timeout_after_last}s after last packet — assuming transfer done")
                         break
                 await asyncio.sleep(0.2)
-            client.write_gatt_char(CONTROL_CHAR_UUID, b"done_tx")
+            client.write_gatt_char(CONTROL_CHAR_UUID, b"done_tx", response=False)
             # stop notifications
             try:
                 await client.stop_notify(DATA_CHAR_UUID)
@@ -308,8 +308,23 @@ class BLE_Com:
             else:
                 BLE_Com.log("No rows received; nothing to save")
 
-            # disconnect
-            await client.disconnect()
+
+            BLE_Com.log("Trying disconnect")
+            try:
+                if client.is_connected:
+                    try:
+                        await client.stop_notify(STATUS_CHAR_UUID)
+                    except Exception:
+                        pass
+                    try:
+                        await client.stop_notify(DATA_CHAR_UUID)
+                    except Exception:
+                        pass
+                    await client.disconnect()
+            except Exception:
+                pass
+
+            BLE_Com.log("Disconnected")
         return True
 
     def save_rows_to_csv(rows):
