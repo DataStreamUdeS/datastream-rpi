@@ -177,42 +177,78 @@ class BLE_Com:
                     BLE_Com.log("Capsule notified TX_done")
                     tx_done_event.set()
 
+            # async def data_handler(sender, data):
+            #     nonlocal last_receive_time
+            #     # Expect binary payload: 5 floats little-endian (20 bytes)
+            #     last_receive_time = datetime.now()
+            #     BLE_Com.log(f"Received {len(data)} bytes on DATA char")
+            #     try:
+            #         # If payload is exactly 20 bytes => one sample
+            #         if len(data) == 20:
+            #             depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
+            #             rows.append({
+            #                 "depth_m": depth,
+            #                 "temperature_c": temperature,
+            #                 "pH": ph,
+            #                 "orp_mV": orp,
+            #                 "o2_mgL": o2,
+            #                 "recv_timestamp": last_receive_time.isoformat()
+            #             })
+            #             BLE_Com.log(f"   parsed sample #{len(rows)}: depth={depth}, temp={temperature}, pH={ph}")
+            #         else:
+            #             # If it's JSON/text or a chunk, try to decode text
+            #             try:
+            #                 text = data.decode("utf-8", errors="ignore").strip()
+            #                 BLE_Com.log(f"   Received text chunk: {text[:120]}")
+            #                 # attempt JSON decode of an array
+            #                 try:
+            #                     arr = json.loads(text)
+            #                     if isinstance(arr, list):
+            #                         for item in arr:
+            #                             rows.append(item)
+            #                 except Exception:
+            #                     # fallback: store raw string
+            #                     rows.append({"raw": text, "recv_timestamp": last_receive_time.isoformat()})
+            #             except Exception as e:
+            #                 BLE_Com.log(f"Could not parse chunk: {e}")
+            #     except Exception as e:
+            #         BLE_Com.log(f"Error unpacking data: {e}")
+
             async def data_handler(sender, data):
                 nonlocal last_receive_time
-                # Expect binary payload: 5 floats little-endian (20 bytes)
+
                 last_receive_time = datetime.now()
-                BLE_Com.log(f"Received {len(data)} bytes on DATA char")
+
+                # Each payload must be exactly 20 bytes (5 floats)
+                if len(data) != 20:
+                    BLE_Com.log(f"Ignoring packet of size {len(data)} bytes")
+                    return
+
                 try:
-                    # If payload is exactly 20 bytes => one sample
-                    if len(data) == 20:
-                        depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
-                        rows.append({
-                            "depth_m": depth,
-                            "temperature_c": temperature,
-                            "pH": ph,
-                            "orp_mV": orp,
-                            "o2_mgL": o2,
-                            "recv_timestamp": last_receive_time.isoformat()
-                        })
-                        BLE_Com.log(f"   parsed sample #{len(rows)}: depth={depth}, temp={temperature}, pH={ph}")
-                    else:
-                        # If it's JSON/text or a chunk, try to decode text
-                        try:
-                            text = data.decode("utf-8", errors="ignore").strip()
-                            BLE_Com.log(f"   Received text chunk: {text[:120]}")
-                            # attempt JSON decode of an array
-                            try:
-                                arr = json.loads(text)
-                                if isinstance(arr, list):
-                                    for item in arr:
-                                        rows.append(item)
-                            except Exception:
-                                # fallback: store raw string
-                                rows.append({"raw": text, "recv_timestamp": last_receive_time.isoformat()})
-                        except Exception as e:
-                            BLE_Com.log(f"Could not parse chunk: {e}")
-                except Exception as e:
-                    BLE_Com.log(f"Error unpacking data: {e}")
+                    depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
+                except struct.error as e:
+                    BLE_Com.log(f"Struct unpack error: {e}")
+                    return
+
+                row = {
+                    "depth_m": round(depth, 3),
+                    "temperature_c": round(temperature, 3),
+                    "pH": round(ph, 3),
+                    "orp_mV": round(orp, 2),
+                    "o2_mgL": round(o2, 3),
+                    "recv_timestamp": last_receive_time.isoformat()
+                }
+
+                rows.append(row)
+
+                BLE_Com.log(
+                    f"Sample {len(rows)}/12 | "
+                    f"Depth={depth:.2f} m | "
+                    f"Temp={temperature:.2f} C | "
+                    f"pH={ph:.2f} | "
+                    f"ORP={orp:.1f} mV | "
+                    f"O2={o2:.2f} mg/L"
+                )
 
             # start notifications
             await client.start_notify(STATUS_CHAR_UUID, status_handler)
