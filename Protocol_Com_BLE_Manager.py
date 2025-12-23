@@ -125,7 +125,7 @@ class BLE_Com:
         """Reconnect, trigger Listen/TX and gather binary notifications"""
         await asyncio.sleep(2)  # small pause before scanning again
         BLE_Com.log("Scanning for DataStream Capsule (reconnection)...")
-        device = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=15.0)
+        device = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=300.0)
         while not device:
             BLE_Com.log("Capsule not found on resurfacing.")
             time.sleep(5)
