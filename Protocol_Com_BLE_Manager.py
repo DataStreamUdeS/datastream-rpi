@@ -36,16 +36,16 @@ class BLE_Com:
         except Exception:
             pass
 
-    async def MEASURE_COLLECTION_MOTOR_CONTROL():
-        BLE_Com.log("Starting MEASURE_COLLECTION_MOTOR_CONTROL()")
-        # use asyncio.sleep in async context
-        for i in range(3):
-            BLE_Com.log(f"Winch movement cycle {i+1}")
-            await asyncio.sleep(1)
-        BLE_Com.log("Finished MEASURE_COLLECTION_MOTOR_CONTROL()")
-
-    async def SENSOR_CALIBRATION(self, client):
-        BLE_Com.log("Starting SENSOR_CALIBRATION() (not implemented)")
+    # async def MEASURE_COLLECTION_MOTOR_CONTROL():
+    #     BLE_Com.log("Starting MEASURE_COLLECTION_MOTOR_CONTROL()")
+    #     # use asyncio.sleep in async context
+    #     for i in range(3):
+    #         BLE_Com.log(f"Winch movement cycle {i+1}")
+    #         await asyncio.sleep(1)
+    #     BLE_Com.log("Finished MEASURE_COLLECTION_MOTOR_CONTROL()")
+    #
+    # async def SENSOR_CALIBRATION(self, client):
+    #     BLE_Com.log("Starting SENSOR_CALIBRATION() (not implemented)")
 
 
     async def initial_handshake():
@@ -90,13 +90,19 @@ class BLE_Com:
             await client.stop_notify(STATUS_CHAR_UUID)
             return False
 
-        BLE_Com.log("Ready received, sending 'Moving' (control & status)")
+        BLE_Com.log("Ready received, sending 'Moving'")
         if DEBUG:
             await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
 
             # wait a bit then disconnect to simulate submersion
             await asyncio.sleep(5)
             BLE_Com.log("Disconnecting for submersion")
+
+            try:
+                await client.stop_notify(STATUS_CHAR_UUID)
+            except Exception:
+                pass
+
             await client.disconnect()
             BLE_Com.log("Disconnected")
 
@@ -118,6 +124,8 @@ class BLE_Com:
                         # start winch control (RPi side)
                         await BLE_Com.MEASURE_COLLECTION_MOTOR_CONTROL()
             asyncio.run(watch_for_button())
+
+            # TODO : deconnexion
 
             # TODO : finir le code pour le boutton calibration
 
