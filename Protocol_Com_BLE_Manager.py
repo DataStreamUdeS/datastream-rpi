@@ -11,7 +11,7 @@ import struct
 import sys
 import pigpio
 
-DEBUG = True 
+DEBUG = True
 
 # UUIDs
 SERVICE_UUID = "7e3a0001-2f4a-4c1e-9b0f-8c1e12345678"
@@ -57,67 +57,68 @@ class BLE_Com:
 
 
         BLE_Com.log(f"Found device: {device.address} — connecting...")
-        async with BleakClient(device) as client:
-            if not client.is_connected:
-                BLE_Com.log("Failed to connect.")
-                return False
-            BLE_Com.log("Connected")
+        #async with BleakClient(device) as client:
+        client = BleakClient(device)
+        if not client.is_connected:
+            BLE_Com.log("Failed to connect.")
+            return False
+        BLE_Com.log("Connected")
 
-            ready_event = asyncio.Event()
+        ready_event = asyncio.Event()
 
-            async def status_notification_handler(sender, data):
-                try:
-                    msg = data.decode("utf-8").strip()
-                except Exception:
-                    msg = repr(data)
-                BLE_Com.log(f"Status notification: '{msg}'")
-                if msg == "Ready":
-                    ready_event.set()
-
-            await client.start_notify(STATUS_CHAR_UUID, status_notification_handler)
-
-            # write Init
-            BLE_Com.log("Writing 'Init' to Control")
-            await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
-
-            # wait for Ready
+        async def status_notification_handler(sender, data):
             try:
-                await asyncio.wait_for(ready_event.wait(), timeout=10.0)
-            except asyncio.TimeoutError:
-                BLE_Com.log("Timeout waiting for 'Ready'")
-                await client.stop_notify(STATUS_CHAR_UUID)
-                return False
+                msg = data.decode("utf-8").strip()
+            except Exception:
+                msg = repr(data)
+            BLE_Com.log(f"Status notification: '{msg}'")
+            if msg == "Ready":
+                ready_event.set()
 
-            BLE_Com.log("Ready received, sending 'Moving' (control & status)")
-            if DEBUG:
-                await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
+        await client.start_notify(STATUS_CHAR_UUID, status_notification_handler)
 
-                # wait a bit then disconnect to simulate submersion
-                await asyncio.sleep(5)
-                BLE_Com.log("Disconnecting for submersion")
-                # await client.disconnect()
-                return True
-                BLE_Com.log("Disconnected")
+        # write Init
+        BLE_Com.log("Writing 'Init' to Control")
+        await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
 
-            else :
-                async def watch_for_button():
-                    pi = pigpio.pi()
-                    pi.set_mode(PIN_CONTROL_BUTTON, pigpio.INPUT)
-                    while True:
-                        if (pi.read(PIN_CONTROL_BUTTON) != 0) :
+        # wait for Ready
+        try:
+            await asyncio.wait_for(ready_event.wait(), timeout=10.0)
+        except asyncio.TimeoutError:
+            BLE_Com.log("Timeout waiting for 'Ready'")
+            await client.stop_notify(STATUS_CHAR_UUID)
+            return False
 
-                            await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
+        BLE_Com.log("Ready received, sending 'Moving' (control & status)")
+        if DEBUG:
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
 
-                            # wait a bit then disconnect to simulate submersion
-                            await asyncio.sleep(5)
-                            BLE_Com.log("Disconnecting to simulate submersion")
-                            await client.disconnect()
+            # wait a bit then disconnect to simulate submersion
+            await asyncio.sleep(5)
+            BLE_Com.log("Disconnecting for submersion")
+            await client.disconnect()
+            BLE_Com.log("Disconnected")
 
-                            # start winch control (RPi side)
-                            await BLE_Com.MEASURE_COLLECTION_MOTOR_CONTROL()
-                asyncio.run(watch_for_button())
 
-                # TODO : finir le code pour le boutton calibration
+        else :
+            async def watch_for_button():
+                pi = pigpio.pi()
+                pi.set_mode(PIN_CONTROL_BUTTON, pigpio.INPUT)
+                while True:
+                    if (pi.read(PIN_CONTROL_BUTTON) != 0) :
+
+                        await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
+
+                        # wait a bit then disconnect to simulate submersion
+                        await asyncio.sleep(5)
+                        BLE_Com.log("Disconnecting to simulate submersion")
+                        await client.disconnect()
+
+                        # start winch control (RPi side)
+                        await BLE_Com.MEASURE_COLLECTION_MOTOR_CONTROL()
+            asyncio.run(watch_for_button())
+
+            # TODO : finir le code pour le boutton calibration
 
         return True
 
