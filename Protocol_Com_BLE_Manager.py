@@ -89,7 +89,7 @@ class BLE_Com:
 
         BLE_Com.log("Ready received, sending 'Moving'")
         if DEBUG:
-            await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving", response=False)
             BLE_Com.log("Start_retriving sended")
             # wait a bit then disconnect to simulate submersion
             await asyncio.sleep(5)
