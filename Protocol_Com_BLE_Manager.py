@@ -270,14 +270,14 @@ class BLE_Com:
 
 async def main():
 
-    ok = await BLE_Com.initial_handshake()
-    if not ok:
-        print("Initial handshake failed — exiting")
-        return
-    print("Initial handshake succeeded")
-    # wait appropriate time for collection (your system)
-    # attempt reconnect & transfer
-    await BLE_Com.reconnect_and_collect(expected_count=12, timeout_after_last=3)
+    # ok = await BLE_Com.initial_handshake()
+    # if not ok:
+    #     print("Initial handshake failed — exiting")
+    #     return
+    # print("Initial handshake succeeded")
+    # # wait appropriate time for collection (your system)
+    # # attempt reconnect & transfer
+    # await BLE_Com.reconnect_and_collect(expected_count=12, timeout_after_last=3)
 
 if __name__ == "__main__":
     try:
