@@ -154,56 +154,57 @@ class BLE_Com:
             time.sleep(5)
 
         BLE_Com.log(f"Found resurfaced capsule: {device.address} — connecting...")
-        async with BleakClient(device) as client:
-            while not client.is_connected:
-                BLE_Com.log("Failed to connect upon reconnection.")
-                time.sleep(5)
-            BLE_Com.log("Reconnected")
+        client = BleakClient(device)
+        client.connect()
+        while not client.is_connected:
+            BLE_Com.log("Failed to connect upon reconnection.")
+            time.sleep(5)
+        BLE_Com.log("Reconnected")
 
-            # storage for received structs
-            rows = []
-            tx_done_event = asyncio.Event()
-            last_receive_time = None
+        # storage for received structs
+        rows = []
+        tx_done_event = asyncio.Event()
+        last_receive_time = None
 
-            async def status_handler(sender, data):
-                try:
-                    msg = data.decode("utf-8").strip()
-                except Exception:
-                    msg = repr(data)
-                BLE_Com.log(f"Status notify: '{msg}'")
-                if msg == "TX":
-                    BLE_Com.log("Capsule requested TX; nothing to do (we will have written 'TX' to control).")
-                elif msg == "TX_done":
-                    BLE_Com.log("Capsule notified TX_done")
-                    tx_done_event.set()
+        async def status_handler(sender, data):
+            try:
+                msg = data.decode("utf-8").strip()
+            except Exception:
+                msg = repr(data)
+            BLE_Com.log(f"Status notify: '{msg}'")
+            if msg == "TX":
+                BLE_Com.log("Capsule requested TX; nothing to do (we will have written 'TX' to control).")
+            elif msg == "TX_done":
+                BLE_Com.log("Capsule notified TX_done")
+                tx_done_event.set()
 
-            async def data_handler(sender, data):
-                nonlocal last_receive_time
-                last_receive_time = datetime.now()
+        async def data_handler(sender, data):
+            nonlocal last_receive_time
+            last_receive_time = datetime.now()
 
-                if len(data) != 20:
-                    BLE_Com.log(f"Ignoring packet of size {len(data)} bytes")
-                    return
+            if len(data) != 20:
+                BLE_Com.log(f"Ignoring packet of size {len(data)} bytes")
+                return
 
-                depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
+            depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
 
-                rows.append({
-                    "depth_m": round(depth, 3),
-                    "temperature_c": round(temperature, 3),
-                    "pH": round(ph, 3),
-                    "orp_mV": round(orp, 2),
-                    "o2_mgL": round(o2, 3),
-                    "recv_timestamp": last_receive_time.isoformat()
-                })
+            rows.append({
+                "depth_m": round(depth, 3),
+                "temperature_c": round(temperature, 3),
+                "pH": round(ph, 3),
+                "orp_mV": round(orp, 2),
+                "o2_mgL": round(o2, 3),
+                "recv_timestamp": last_receive_time.isoformat()
+            })
 
-                BLE_Com.log(
-                    f"Sample {len(rows)}/12 | "
-                    f"Depth={depth:.2f} m | "
-                    f"Temp={temperature:.2f} C | "
-                    f"pH={ph:.2f} | "
-                    f"ORP={orp:.1f} mV | "
-                    f"O2={o2:.2f} mg/L"
-                )
+            BLE_Com.log(
+                f"Sample {len(rows)}/12 | "
+                f"Depth={depth:.2f} m | "
+                f"Temp={temperature:.2f} C | "
+                f"pH={ph:.2f} | "
+                f"ORP={orp:.1f} mV | "
+                f"O2={o2:.2f} mg/L"
+            )
 
             # start notifications
             await client.start_notify(STATUS_CHAR_UUID, status_handler)
