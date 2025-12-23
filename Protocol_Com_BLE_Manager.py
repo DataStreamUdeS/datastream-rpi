@@ -271,7 +271,7 @@ class BLE_Com:
 
     def save_rows_to_csv(rows):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"/home/pi/Desktop/datastream-pi//water_data_{timestamp}.csv"
+        filename = f"/home/pi/Desktop/datastream-pi/water_data_{timestamp}.csv"
         BLE_Com.log(f"Saving {len(rows)} rows to {filename}")
         # if first row is dict with keys
         keys = None
