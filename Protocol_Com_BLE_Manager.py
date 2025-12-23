@@ -11,7 +11,7 @@ import struct
 import sys
 import pigpio
 
-from integration import DEBUG
+DEBUG = True 
 
 # UUIDs
 SERVICE_UUID = "7e3a0001-2f4a-4c1e-9b0f-8c1e12345678"
