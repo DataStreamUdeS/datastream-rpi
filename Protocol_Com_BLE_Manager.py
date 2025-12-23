@@ -268,7 +268,7 @@ class BLE_Com:
         except Exception as e:
             BLE_Com.log(f"Failed to save CSV: {e}")
 
-async def main():
+# async def main():
 
     # ok = await BLE_Com.initial_handshake()
     # if not ok:
@@ -279,11 +279,11 @@ async def main():
     # # attempt reconnect & transfer
     # await BLE_Com.reconnect_and_collect(expected_count=12, timeout_after_last=3)
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Interrupted by user")
-    except Exception as e:
-        print(f"Exception in main: {e}")
-        sys.exit(1)
+# if __name__ == "__main__":
+#     # try:
+#     #     asyncio.run(main())
+#     # except KeyboardInterrupt:
+#     #     print("Interrupted by user")
+#     # except Exception as e:
+#     #     print(f"Exception in main: {e}")
+#     #     sys.exit(1)
