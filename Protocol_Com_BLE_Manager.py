@@ -59,8 +59,9 @@ class BLE_Com:
         BLE_Com.log(f"Found device: {device.address} — connecting...")
         #async with BleakClient(device) as client:
         client = BleakClient(device)
+        await client.connect()
         if not client.is_connected:
-            BLE_Com.log("Failed to connect.")
+            BLE_Com.log("Failed to connect")
             return False
         BLE_Com.log("Connected")
 
