@@ -11,6 +11,8 @@ import struct
 import sys
 import pigpio
 
+from integration import DEBUG
+
 # UUIDs
 SERVICE_UUID = "7e3a0001-2f4a-4c1e-9b0f-8c1e12345678"
 CONTROL_CHAR_UUID = "7e3a0002-2f4a-4c1e-9b0f-8c1e12345678"
@@ -87,16 +89,16 @@ class BLE_Com:
                 return False
 
             BLE_Com.log("Ready received, sending 'Moving' (control & status)")
-            if (True):
+            if DEBUG:
                 await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
 
                 # wait a bit then disconnect to simulate submersion
                 await asyncio.sleep(5)
                 BLE_Com.log("Disconnecting for submersion")
-                await client.disconnect()
+                # await client.disconnect()
+                return True
+                BLE_Com.log("Disconnected")
 
-                # start winch control (RPi side)
-                await BLE_Com.MEASURE_COLLECTION_MOTOR_CONTROL()
             else :
                 async def watch_for_button():
                     pi = pigpio.pi()
