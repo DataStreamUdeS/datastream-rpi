@@ -156,9 +156,6 @@ class BLE_Com:
         BLE_Com.log(f"Found resurfaced capsule: {device.address} — connecting...")
         client = BleakClient(device)
         await client.connect()
-        while not client.is_connected:
-            BLE_Com.log("Failed to connect upon reconnection.")
-            time.sleep(5)
         BLE_Com.log("Reconnected")
 
         # storage for received structs
