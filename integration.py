@@ -109,8 +109,9 @@ def email_pressed(channel):
     send_email()
     set_system_state("IDLE" if not stop_flag else "STOPPED")
 
-# GPIO.add_event_detect(BTN_STOP, GPIO.FALLING, callback=stop_pressed, bouncetime=300)
-GPIO.add_event_detect(BTN_SEND_EMAIL, GPIO.FALLING, callback=email_pressed, bouncetime=300)
+if DEBUG:
+    GPIO.add_event_detect(BTN_STOP, GPIO.FALLING, callback=stop_pressed, bouncetime=300)
+    GPIO.add_event_detect(BTN_SEND_EMAIL, GPIO.FALLING, callback=email_pressed, bouncetime=300)
 
 # =============================================
 # =================== GPS (SIM7600) ===========
