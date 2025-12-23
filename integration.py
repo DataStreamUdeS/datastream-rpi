@@ -13,6 +13,7 @@ import smtplib
 from email.message import EmailMessage
 import RPi.GPIO as GPIO
 import json
+from Protocol_Com_BLE_Manager import BLE_Com
 
 # ---------------- DEBUG CONFIG ----------------
 DEBUG = True  # Set to True only for bench testing without buttons
@@ -248,137 +249,137 @@ def send_email():
 # =============================================
 # ============ BLE DEVICE DISCOVERY ===========
 # =============================================
-async def find_capsule():
-    log("Scanning for DataStream Capsule...")
-    devices = await BleakScanner.discover(timeout=60.0)
-    for d in devices:
-        if d.name and DEVICE_NAME in d.name:
-            log(f"Found by name: {d.name} @ {d.address}")
-            return d
-        if SERVICE_UUID.lower() in [u.lower() for u in d.metadata.get("uuids", [])]:
-            log(f"Found by service UUID: {d.address}")
-            return d
-    return None
+# async def find_capsule():
+#     log("Scanning for DataStream Capsule...")
+#     devices = await BleakScanner.discover(timeout=60.0)
+#     for d in devices:
+#         if d.name and DEVICE_NAME in d.name:
+#             log(f"Found by name: {d.name} @ {d.address}")
+#             return d
+#         if SERVICE_UUID.lower() in [u.lower() for u in d.metadata.get("uuids", [])]:
+#             log(f"Found by service UUID: {d.address}")
+#             return d
+#     return None
 
 
 # =============================================
 # =============== INITIAL HANDSHAKE ===========
 # =============================================
-async def initial_handshake():
-    if stop_flag:
-        return False
-    set_system_state("BUSY")
-    log("Searching for capsule...")
-
-    device = await find_capsule()
-    if not device:
-        log("Capsule not found!")
-        set_system_state("IDLE")
-        return False
-
-    async with BleakClient(device) as client:
-        log(f"Connected to {device.address}")
-
-        ready_event = asyncio.Event()
-
-        async def status_handler(sender, data):
-            try:
-                msg = data.decode("utf-8").strip()
-                log(f"Status: {msg}")
-                if "Ready" in msg:
-                    ready_event.set()
-            except:
-                pass
-
-        await client.start_notify(STATUS_CHAR_UUID, status_handler)
-        await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
-
-        try:
-            await asyncio.wait_for(ready_event.wait(), timeout=6.0)
-            log("Capsule ready")
-        except asyncio.TimeoutError:
-            log("Ready timeout – continuing anyway")
-
-        await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
-        await asyncio.sleep(2)
-        log("Initial handshake complete – disconnecting")
-
-    set_system_state("IDLE")
-    return True
+# async def initial_handshake():
+#     if stop_flag:
+#         return False
+#     set_system_state("BUSY")
+#     log("Searching for capsule...")
+#
+#     device = await find_capsule()
+#     if not device:
+#         log("Capsule not found!")
+#         set_system_state("IDLE")
+#         return False
+#
+#     async with BleakClient(device) as client:
+#         log(f"Connected to {device.address}")
+#
+#         ready_event = asyncio.Event()
+#
+#         async def status_handler(sender, data):
+#             try:
+#                 msg = data.decode("utf-8").strip()
+#                 log(f"Status: {msg}")
+#                 if "Ready" in msg:
+#                     ready_event.set()
+#             except:
+#                 pass
+#
+#         await client.start_notify(STATUS_CHAR_UUID, status_handler)
+#         await client.write_gatt_char(CONTROL_CHAR_UUID, b"Init")
+#
+#         try:
+#             await asyncio.wait_for(ready_event.wait(), timeout=6.0)
+#             log("Capsule ready")
+#         except asyncio.TimeoutError:
+#             log("Ready timeout – continuing anyway")
+#
+#         await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
+#         await asyncio.sleep(2)
+#         log("Initial handshake complete – disconnecting")
+#
+#     set_system_state("IDLE")
+#     return True
 
 # =============================================
 # ============ WAIT FOR RECONNECT BUTTON ======
 # =============================================
-async def wait_for_reconnect_button():
-    if DEBUG:
-        log("DEBUG mode → skipping reconnect button wait")
-        await asyncio.sleep(2)
-        return True
-
-    set_system_state("WAITING")
-    log("Waiting for RECONNECT button (blue LED)...")
-    while not stop_flag:
-        if GPIO.input(BTN_RECONNECT) == GPIO.LOW:
-            log("RECONNECT button pressed")
-            await asyncio.sleep(0.3)  # debounce
-            return True
-        await asyncio.sleep(0.1)
-    return False
+# async def wait_for_reconnect_button():
+#     if DEBUG:
+#         log("DEBUG mode → skipping reconnect button wait")
+#         await asyncio.sleep(2)
+#         return True
+#
+#     set_system_state("WAITING")
+#     log("Waiting for RECONNECT button (blue LED)...")
+#     while not stop_flag:
+#         if GPIO.input(BTN_RECONNECT) == GPIO.LOW:
+#             log("RECONNECT button pressed")
+#             await asyncio.sleep(0.3)  # debounce
+#             return True
+#         await asyncio.sleep(0.1)
+#     return False
 
 # =============================================
 # ============ RECONNECT & COLLECT DATA =======
 # =============================================
-async def reconnect_and_collect():
-    set_system_state("BUSY")
-    log("Reconnecting to capsule to collect sensor data...")
-
-    device = None
-    for attempt in range(100):
-        device = await find_capsule()
-        if device:
-            break
-        log(f"Scan attempt {attempt+1}/4 failed, retrying...")
-        await asyncio.sleep(3)
-
-    if not device:
-        log("Failed to reconnect – giving up")
-        set_system_state("IDLE")
-        return
-
-    async with BleakClient(device) as client:
-        log(f"Reconnected to {device.address}")
-
-        received_data = []
-        
-        await client.write_gatt_char(CONTROL_CHAR_UUID, b"ready_to_tx")
-
-        async def data_handler(sender, data):
-            if len(data) == 20:
-                depth, temp, ph, orp, o2 = struct.unpack("<5f", data)
-                log(f"Data → Depth:{depth:.2f}m Temp:{temp:.1f}°C pH:{ph:.2f} ORP:{orp:.0f}mV DO:{o2:.2f}mg/L")
-                received_data.append({"depth": depth, "temp": temp, "ph": ph, "orp": orp, "o2": o2})
-            else:
-                log(f"Unexpected data length: {len(data)} bytes")
-
-        await client.start_notify(DATA_CHAR_UUID, data_handler)
-        
-        # Sends the command to start transmission
-        await client.write_gatt_char(CONTROL_CHAR_UUID, b"done_tx")
-        
-        log("Requested data transmission – waiting 12 seconds...")
-        await asyncio.sleep(12)
-        await client.stop_notify(DATA_CHAR_UUID)
-
-        if received_data:
-            ensure_csv_header()
-            pos = get_gps_location()                     # REAL GPS HERE
-            write_to_csv(pos, received_data)
-            log(f"{len(received_data)} readings saved with GPS {pos}")
-            send_email()                                 # Auto-send after collection
-        else:
-            log("No sensor data received during collection window")
-
-    set_system_state("IDLE")
+# async def reconnect_and_collect():
+#     set_system_state("BUSY")
+#     log("Reconnecting to capsule to collect sensor data...")
+#
+#     device = None
+#     for attempt in range(100):
+#         device = await find_capsule()
+#         if device:
+#             break
+#         log(f"Scan attempt {attempt+1}/4 failed, retrying...")
+#         await asyncio.sleep(3)
+#
+#     if not device:
+#         log("Failed to reconnect – giving up")
+#         set_system_state("IDLE")
+#         return
+#
+#     async with BleakClient(device) as client:
+#         log(f"Reconnected to {device.address}")
+#
+#         received_data = []
+#
+#         await client.write_gatt_char(CONTROL_CHAR_UUID, b"ready_to_tx")
+#
+#         async def data_handler(sender, data):
+#             if len(data) == 20:
+#                 depth, temp, ph, orp, o2 = struct.unpack("<5f", data)
+#                 log(f"Data → Depth:{depth:.2f}m Temp:{temp:.1f}°C pH:{ph:.2f} ORP:{orp:.0f}mV DO:{o2:.2f}mg/L")
+#                 received_data.append({"depth": depth, "temp": temp, "ph": ph, "orp": orp, "o2": o2})
+#             else:
+#                 log(f"Unexpected data length: {len(data)} bytes")
+#
+#         await client.start_notify(DATA_CHAR_UUID, data_handler)
+#
+#         # Sends the command to start transmission
+#         await client.write_gatt_char(CONTROL_CHAR_UUID, b"done_tx")
+#
+#         log("Requested data transmission – waiting 12 seconds...")
+#         await asyncio.sleep(12)
+#         await client.stop_notify(DATA_CHAR_UUID)
+#
+#         if received_data:
+#             ensure_csv_header()
+#             pos = get_gps_location()                     # REAL GPS HERE
+#             write_to_csv(pos, received_data)
+#             log(f"{len(received_data)} readings saved with GPS {pos}")
+#             send_email()                                 # Auto-send after collection
+#         else:
+#             log("No sensor data received during collection window")
+#
+#     set_system_state("IDLE")
 
 # =============================================
 # =================== MAIN ====================
@@ -397,9 +398,18 @@ async def main():
         log("START button pressed – beginning mission")
         await asyncio.sleep(0.5)
 
-    if await initial_handshake():
-        if await wait_for_reconnect_button():
-            await reconnect_and_collect()
+    # if await initial_handshake():
+    #     if await wait_for_reconnect_button():
+    #         await reconnect_and_collect()
+
+    ok = await BLE_Com.initial_handshake()
+    if not ok:
+        print("Initial handshake failed — exiting")
+        return
+    print("Initial handshake succeeded")
+    # wait appropriate time for collection (your system)
+    # attempt reconnect & transfer
+    await BLE_Com.reconnect_and_collect(expected_count=12, timeout_after_last=3)
 
     log("Mission complete")
     set_system_state("IDLE")
