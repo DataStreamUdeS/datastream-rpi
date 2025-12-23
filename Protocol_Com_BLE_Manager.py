@@ -177,69 +177,24 @@ class BLE_Com:
                     BLE_Com.log("Capsule notified TX_done")
                     tx_done_event.set()
 
-            # async def data_handler(sender, data):
-            #     nonlocal last_receive_time
-            #     # Expect binary payload: 5 floats little-endian (20 bytes)
-            #     last_receive_time = datetime.now()
-            #     BLE_Com.log(f"Received {len(data)} bytes on DATA char")
-            #     try:
-            #         # If payload is exactly 20 bytes => one sample
-            #         if len(data) == 20:
-            #             depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
-            #             rows.append({
-            #                 "depth_m": depth,
-            #                 "temperature_c": temperature,
-            #                 "pH": ph,
-            #                 "orp_mV": orp,
-            #                 "o2_mgL": o2,
-            #                 "recv_timestamp": last_receive_time.isoformat()
-            #             })
-            #             BLE_Com.log(f"   parsed sample #{len(rows)}: depth={depth}, temp={temperature}, pH={ph}")
-            #         else:
-            #             # If it's JSON/text or a chunk, try to decode text
-            #             try:
-            #                 text = data.decode("utf-8", errors="ignore").strip()
-            #                 BLE_Com.log(f"   Received text chunk: {text[:120]}")
-            #                 # attempt JSON decode of an array
-            #                 try:
-            #                     arr = json.loads(text)
-            #                     if isinstance(arr, list):
-            #                         for item in arr:
-            #                             rows.append(item)
-            #                 except Exception:
-            #                     # fallback: store raw string
-            #                     rows.append({"raw": text, "recv_timestamp": last_receive_time.isoformat()})
-            #             except Exception as e:
-            #                 BLE_Com.log(f"Could not parse chunk: {e}")
-            #     except Exception as e:
-            #         BLE_Com.log(f"Error unpacking data: {e}")
-
             async def data_handler(sender, data):
                 nonlocal last_receive_time
-
                 last_receive_time = datetime.now()
 
-                # Each payload must be exactly 20 bytes (5 floats)
                 if len(data) != 20:
                     BLE_Com.log(f"Ignoring packet of size {len(data)} bytes")
                     return
 
-                try:
-                    depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
-                except struct.error as e:
-                    BLE_Com.log(f"Struct unpack error: {e}")
-                    return
+                depth, temperature, ph, orp, o2 = struct.unpack("<5f", data)
 
-                row = {
+                rows.append({
                     "depth_m": round(depth, 3),
                     "temperature_c": round(temperature, 3),
                     "pH": round(ph, 3),
                     "orp_mV": round(orp, 2),
                     "o2_mgL": round(o2, 3),
                     "recv_timestamp": last_receive_time.isoformat()
-                }
-
-                rows.append(row)
+                })
 
                 BLE_Com.log(
                     f"Sample {len(rows)}/12 | "
@@ -263,32 +218,19 @@ class BLE_Com:
             # To be safe: write "TX" once after small delay to trigger transmission if device expects it
             await asyncio.sleep(0.5)
             BLE_Com.log("Writing 'TX' to Control characteristic (trigger transmission)")
-            # await client.write_gatt_char(CONTROL_CHAR_UUID, b"TX")
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"TX")
 
             # Now wait for data:
             # strategy: wait until tx_done_event is set OR until we received expected_count samples
             # OR until a short timeout since last_receive_time
             start = datetime.now()
-            while True:
-                # if tx_done_event triggered -> break
-                if tx_done_event.is_set():
-                    BLE_Com.log("Breaking: tx_done_event set")
+            while len(rows) < expected_count:
+                if (datetime.now() - start).total_seconds() > 30:
+                    BLE_Com.log("Timeout waiting for samples")
                     break
-                # if we got enough samples
-                if expected_count and len(rows) >= expected_count:
-                    BLE_Com.log(f"Breaking: expected_count ({expected_count}) received")
-                    break
-                # if no data ever received for long -> give up
-                if (datetime.now() - start).total_seconds() > 60:
-                    BLE_Com.log("Timeout waiting for data (60s) — aborting transfer")
-                    break
-                # if we received at least one and nothing for timeout_after_last seconds -> assume transfer finished
-                if last_receive_time:
-                    if (datetime.now() - last_receive_time).total_seconds() > timeout_after_last:
-                        BLE_Com.log(f"No data for {timeout_after_last}s after last packet — assuming transfer done")
-                        break
-                await asyncio.sleep(0.2)
-            client.write_gatt_char(CONTROL_CHAR_UUID, b"done_tx", response=False)
+                await asyncio.sleep(0.1)
+
+            await client.write_gatt_char(CONTROL_CHAR_UUID, b"done_tx", response=False)
             # stop notifications
             try:
                 await client.stop_notify(DATA_CHAR_UUID)
