@@ -60,9 +60,6 @@ class BLE_Com:
         #async with BleakClient(device) as client:
         client = BleakClient(device)
         await client.connect()
-        if not client.is_connected:
-            BLE_Com.log("Failed to connect")
-            return False
         BLE_Com.log("Connected")
 
         ready_event = asyncio.Event()
@@ -93,17 +90,33 @@ class BLE_Com:
         BLE_Com.log("Ready received, sending 'Moving'")
         if DEBUG:
             await client.write_gatt_char(CONTROL_CHAR_UUID, b"start_retriving")
-
+            BLE_Com.log("Start_retriving sended")
             # wait a bit then disconnect to simulate submersion
             await asyncio.sleep(5)
             BLE_Com.log("Disconnecting for submersion")
 
+            BLE_Com.log("Stop notification")
             try:
                 await client.stop_notify(STATUS_CHAR_UUID)
             except Exception:
                 pass
+            BLE_Com.log("Stop notification succesfull")
 
-            await client.disconnect()
+            BLE_Com.log("Trying disconnect")
+            try:
+                if client.is_connected:
+                    try:
+                        await client.stop_notify(STATUS_CHAR_UUID)
+                    except Exception:
+                        pass
+                    try:
+                        await client.stop_notify(DATA_CHAR_UUID)
+                    except Exception:
+                        pass
+                    await client.disconnect()
+            except Exception:
+                pass
+
             BLE_Com.log("Disconnected")
 
 
